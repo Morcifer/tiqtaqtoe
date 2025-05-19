@@ -37,18 +37,30 @@ pub struct SpookyMark(Position, Position, TurnToken);
 const BOARD_SIZE: usize = 3;
 
 pub struct Board {
-    board: [[Option<TurnToken>; BOARD_SIZE]; BOARD_SIZE], // the board is only updated on collapses
-    turn: u8,
-    spooky_marks: Vec<SpookyMark>,
+    pub positions: Vec<Position>,
+    pub board: [[Option<TurnToken>; BOARD_SIZE]; BOARD_SIZE], // the board is only updated on collapses
+    pub turn: u8,
+    pub spooky_marks: Vec<SpookyMark>,
 }
 
 impl Board {
     pub fn new() -> Self {
         Self {
+            positions: (0..BOARD_SIZE)
+                .flat_map(|row| (0..BOARD_SIZE).map(move |column| Position::new(row, column)))
+                .collect_vec(),
             board: [[None; BOARD_SIZE]; BOARD_SIZE],
             turn: 1,
             spooky_marks: vec![],
         }
+    }
+
+    pub fn set_mark(&mut self, position: Position, turn_token: TurnToken) {
+        self.board[position.row][position.column] = Some(turn_token);
+    }
+
+    pub fn get_mark(&self, position: Position) -> Option<TurnToken> {
+        self.board[position.row][position.column]
     }
 
     pub fn set_spooky_mark(&mut self, position_1: Position, position_2: Position, token: Token) {
@@ -63,7 +75,7 @@ impl Board {
         };
 
         if position_1 == position_2 {
-            self.board[position_1.row][position_1.column] = Some(turn_token);
+            self.set_mark(position_1, turn_token);
         } else {
             self.spooky_marks
                 .push(SpookyMark(position_1, position_2, turn_token));
@@ -117,22 +129,18 @@ impl Board {
     }
 
     pub fn collapse_loop(&mut self) {
-        // Find if there is a loop - TODO: extract to a separate struct and file
-        let positions = (0..BOARD_SIZE)
-            .flat_map(|row| (0..BOARD_SIZE).map(move |column| Position::new(row, column)))
-            .collect_vec();
-
-        let mut visited: HashMap<Position, bool> = positions.iter().map(|p| (*p, false)).collect();
+        // Find if there is a loop
+        let mut visited: HashMap<Position, bool> = self.positions.iter().map(|p| (*p, false)).collect();
         let mut parents: HashMap<Position, Option<Position>> =
-            positions.iter().map(|p| (*p, None)).collect();
+            self.positions.iter().map(|p| (*p, None)).collect();
 
         let (mut start_loop, mut end_loop) = (None, None);
 
-        for position in positions {
-            if !visited[&position] {
+        for position in &self.positions {
+            if !visited[position] {
                 if let Some((start, end)) = self.depth_first_search(
-                    position,
-                    parents[&position],
+                    *position,
+                    parents[position],
                     &mut visited,
                     &mut parents,
                 ) {
@@ -172,7 +180,7 @@ impl Board {
 
         println!("Collapsing {first:?} on {position}");
 
-        self.board[position.row][position.column] = Some(first.2);
+        self.set_mark(position, first.2);
 
         self.spooky_marks.retain(|m| *m != first);
 
@@ -187,13 +195,13 @@ impl Board {
         {
             self.spooky_marks.retain(|m| *m != to_collapse);
 
-            if self.board[to_collapse.0.row][to_collapse.0.column].is_some() {
+            if self.get_mark(to_collapse.0).is_some() {
                 println!("collapsing {to_collapse:?} on {}", to_collapse.1);
-                self.board[to_collapse.1.row][to_collapse.1.column] = Some(to_collapse.2);
+                self.set_mark(to_collapse.1, to_collapse.2);
                 collapsed_positions.insert(to_collapse.1);
-            } else if self.board[to_collapse.1.row][to_collapse.1.column].is_some() {
+            } else if self.get_mark(to_collapse.1).is_some() {
                 println!("collapsing {to_collapse:?} on {}", to_collapse.0);
-                self.board[to_collapse.0.row][to_collapse.0.column] = Some(to_collapse.2);
+                self.set_mark(to_collapse.0, to_collapse.2);
                 collapsed_positions.insert(to_collapse.0);
             } else {
                 continue;
@@ -240,7 +248,7 @@ impl Board {
             .filter_map(|v| {
                 let max_turn = v
                     .iter()
-                    .map(|Position { row, column }| match self.board[*row][*column] {
+                    .map(|position| match self.get_mark(*position) {
                         Some(TurnToken::X(turn)) => turn,
                         _ => u8::MAX,
                     })
@@ -260,7 +268,7 @@ impl Board {
             .filter_map(|v| {
                 let max_turn = v
                     .iter()
-                    .map(|Position { row, column }| match self.board[*row][*column] {
+                    .map(|position| match self.get_mark(*position) {
                         Some(TurnToken::O(turn)) => turn,
                         _ => u8::MAX,
                     })
