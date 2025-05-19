@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 use derive_more::Display;
 use itertools::Itertools;
@@ -130,7 +131,9 @@ impl Board {
 
     pub fn collapse_loop(&mut self) {
         // Find if there is a loop
-        let mut visited: HashMap<Position, bool> = self.positions.iter().map(|p| (*p, false)).collect();
+        let mut visited: HashMap<Position, bool> =
+            self.positions.iter().map(|p| (*p, false)).collect();
+
         let mut parents: HashMap<Position, Option<Position>> =
             self.positions.iter().map(|p| (*p, None)).collect();
 
@@ -291,5 +294,86 @@ impl Board {
             (Some(turn_x), Some(turn_o)) if turn_x > turn_o => (1, 2),
             (Some(_), Some(_)) => panic!("I have a tie. I shouldn't be able to have a tie."),
         }
+    }
+}
+
+const X0: &[char] = &[' ', 'X', 'X', ' ', ' ', 'X', 'X', ' '];
+const X1: &[char] = &[' ', ' ', ' ', 'X', 'X', ' ', ' ', ' '];
+
+const O0: &[char] = &[' ', ' ', 'O', 'O', 'O', 'O', ' ', ' '];
+const O1: &[char] = &[' ', 'O', 'O', ' ', ' ', 'O', 'O', ' '];
+
+impl fmt::Display for Board {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut display = [[' '; 32]; 11]; // TODO: Make generic for grid size!
+
+        for row in &mut display {
+            row[10] = '│';
+            row[21] = '│';
+        }
+
+        // TODO: Make const of this.
+        display[3] = "──────────┼──────────┼──────────"
+            .chars()
+            .collect_vec()
+            .try_into()
+            .unwrap();
+
+        display[7] = "──────────┼──────────┼──────────"
+            .chars()
+            .collect_vec()
+            .try_into()
+            .unwrap();
+
+        for position in &self.positions {
+            let row_offset = position.row * 4;
+            let column_offset = position.column * 11;
+
+            match self.get_mark(*position) {
+                Some(TurnToken::X(turn)) => {
+                    display[row_offset][column_offset..column_offset + 8].copy_from_slice(X0);
+                    display[row_offset + 1][column_offset..column_offset + 8].copy_from_slice(X1);
+                    display[row_offset + 2][column_offset..column_offset + 8].copy_from_slice(X0);
+
+                    display[row_offset + 2][column_offset + 8] =
+                        char::from_digit(turn as u32, 10).unwrap();
+                }
+                Some(TurnToken::O(turn)) => {
+                    display[row_offset][column_offset..column_offset + 8].copy_from_slice(O0);
+                    display[row_offset + 1][column_offset..column_offset + 8].copy_from_slice(O1);
+                    display[row_offset + 2][column_offset..column_offset + 8].copy_from_slice(O0);
+
+                    display[row_offset + 2][column_offset + 8] =
+                        char::from_digit(turn as u32, 10).unwrap();
+                }
+                None => continue,
+            }
+        }
+
+        for SpookyMark(p1, p2, m) in &self.spooky_marks {
+            let row_offset_1 = p1.row * 4;
+            let column_offset_1 = p1.column * 11;
+
+            let row_offset_2 = p2.row * 4;
+            let column_offset_2 = p2.column * 11;
+
+            let slice = match m {
+                TurnToken::X(turn) => ['X', char::from_digit(*turn as u32, 10).unwrap()],
+                TurnToken::O(turn) => ['O', char::from_digit(*turn as u32, 10).unwrap()],
+            };
+
+            display[row_offset_1 + p2.row]
+                [column_offset_1 + p2.column * 3 + 1..column_offset_1 + p2.column * 3 + 3]
+                .copy_from_slice(&slice);
+            display[row_offset_2 + p1.row]
+                [column_offset_2 + p1.column * 3 + 1..column_offset_2 + p1.column * 3 + 3]
+                .copy_from_slice(&slice);
+        }
+
+        for row in display {
+            writeln!(f, "{}", row.iter().collect::<String>())?;
+        }
+
+        Ok(())
     }
 }

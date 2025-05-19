@@ -21,6 +21,8 @@ fn main() {
     // TODO: extract this game loop into a separate game struct
     for game_move in game_moves {
         board.set_spooky_mark(game_move.0, game_move.1, game_move.2);
+        print!("{board}");
+
         board.collapse_loop();
         let board_score = board.find_winner();
         if board_score != (0, 0) {
