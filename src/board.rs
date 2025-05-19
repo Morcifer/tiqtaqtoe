@@ -1,5 +1,17 @@
 use derive_more::Display;
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct Position {
+    row: usize,
+    column: usize,
+}
+
+impl Position {
+    pub fn new(row: usize, column: usize) -> Position {
+        Self { row, column }
+    }
+}
+
 #[derive(Clone, Copy, Display, Eq, PartialEq)]
 #[repr(u8)] // TODO: Does this actually do anything?
 pub enum Token {
@@ -43,12 +55,12 @@ impl Board {
     pub fn find_winner(&self) -> (usize, usize) {
         // Points X, points O
         // TODO: Extract into list made in constructor!
-        let mut rows_columns_and_diagonals: Vec<Vec<(usize, usize)>> = vec![];
+        let mut rows_columns_and_diagonals: Vec<Vec<Position>> = vec![];
 
         for row_index in 0..BOARD_SIZE {
             rows_columns_and_diagonals.push(
                 (0..BOARD_SIZE)
-                    .map(|column_index| (row_index, column_index))
+                    .map(|column_index| Position::new(row_index, column_index))
                     .collect(),
             );
         }
@@ -56,19 +68,19 @@ impl Board {
         for column_index in 0..BOARD_SIZE {
             rows_columns_and_diagonals.push(
                 (0..BOARD_SIZE)
-                    .map(|row_index| (row_index, column_index))
+                    .map(|row_index| Position::new(row_index, column_index))
                     .collect(),
             );
         }
 
         rows_columns_and_diagonals.push(
             (0..BOARD_SIZE)
-                .map(|row_index| (row_index, row_index))
+                .map(|row_index| Position::new(row_index, row_index))
                 .collect(),
         );
         rows_columns_and_diagonals.push(
             (0..BOARD_SIZE)
-                .map(|row_index| (row_index, BOARD_SIZE - row_index - 1))
+                .map(|row_index| Position::new(row_index, BOARD_SIZE - row_index - 1))
                 .collect(),
         );
 
@@ -78,12 +90,10 @@ impl Board {
             .filter_map(|v| {
                 let max_turn = v
                     .iter()
-                    .map(
-                        |(row_index, column_index)| match self.board[*row_index][*column_index] {
-                            Some(TurnToken::X(turn)) => turn,
-                            _ => u8::MAX,
-                        },
-                    )
+                    .map(|Position { row, column }| match self.board[*row][*column] {
+                        Some(TurnToken::X(turn)) => turn,
+                        _ => u8::MAX,
+                    })
                     .max()
                     .unwrap();
 
@@ -100,12 +110,10 @@ impl Board {
             .filter_map(|v| {
                 let max_turn = v
                     .iter()
-                    .map(
-                        |(row_index, column_index)| match self.board[*row_index][*column_index] {
-                            Some(TurnToken::O(turn)) => turn,
-                            _ => u8::MAX,
-                        },
-                    )
+                    .map(|Position { row, column }| match self.board[*row][*column] {
+                        Some(TurnToken::O(turn)) => turn,
+                        _ => u8::MAX,
+                    })
                     .max()
                     .unwrap();
 
