@@ -33,7 +33,7 @@ pub enum TurnToken {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct SpookyMark(Position, Position, TurnToken);
+pub struct SpookyMark(pub Position, pub Position, pub TurnToken);
 
 const BOARD_SIZE: usize = 3;
 
