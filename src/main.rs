@@ -12,7 +12,7 @@ fn main() {
     let markers_order = [Token::X, Token::O];
 
     // TODO: extract this game loop into a separate game struct
-    while board.turn < 10 && board.find_winner() == (0, 0) {
+    while board.turn < 10 && board.find_winner() == (0.0, 0.0) {
         let random_move = random_move(&board);
         board.set_spooky_mark(
             random_move.0,
@@ -28,18 +28,25 @@ fn main() {
     print!("{board}");
     let board_score = board.find_winner();
 
-    let winner = if board_score.0 == 2 {
-        Token::X
+    let winner = if board_score.0 == 1.0 {
+        Some(Token::X)
+    } else if board_score.1 == 1.0 {
+        Some(Token::O)
     } else {
-        Token::O
+        None
     };
 
-    println!(
-        "{:?} is the point distribution of {} and {} - {winner} won!",
-        board_score,
-        Token::X,
-        Token::O,
-    );
+    match winner {
+        Some(winner) => {
+            println!(
+                "{:?} is the point distribution of {} and {} - {winner} won!",
+                board_score,
+                Token::X,
+                Token::O,
+            );
+        }
+        None => println!("It's a tie!"),
+    }
 
     // let game_moves = [
     //     (Position::new(0, 0), Position::new(0, 0), Token::X),

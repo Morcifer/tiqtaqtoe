@@ -39,6 +39,7 @@ const BOARD_SIZE: usize = 3;
 
 pub struct Board {
     pub positions: Vec<Position>,
+    pub rows_columns_and_diagonals: Vec<[Position; BOARD_SIZE]>,
     pub board: [[Option<TurnToken>; BOARD_SIZE]; BOARD_SIZE], // the board is only updated on collapses
     pub turn: u8,
     pub spooky_marks: Vec<SpookyMark>,
@@ -50,10 +51,54 @@ impl Board {
             positions: (0..BOARD_SIZE)
                 .flat_map(|row| (0..BOARD_SIZE).map(move |column| Position::new(row, column)))
                 .collect_vec(),
+            rows_columns_and_diagonals: Self::get_rows_columns_and_diagonals(),
             board: [[None; BOARD_SIZE]; BOARD_SIZE],
             turn: 1,
             spooky_marks: vec![],
         }
+    }
+
+    fn get_rows_columns_and_diagonals() -> Vec<[Position; BOARD_SIZE]> {
+        // TODO: This method is only correct for BOARD_SIZE <= 4.
+        let mut rows_columns_and_diagonals: Vec<[Position; BOARD_SIZE]> = vec![];
+
+        for index in 0..BOARD_SIZE {
+            // Rows
+            rows_columns_and_diagonals.push(
+                (0..BOARD_SIZE)
+                    .map(|column_index| Position::new(index, column_index))
+                    .collect_vec()
+                    .try_into()
+                    .unwrap(),
+            );
+
+            // Columns
+            rows_columns_and_diagonals.push(
+                (0..BOARD_SIZE)
+                    .map(|row_index| Position::new(row_index, index))
+                    .collect_vec()
+                    .try_into()
+                    .unwrap(),
+            );
+        }
+
+        rows_columns_and_diagonals.push(
+            (0..BOARD_SIZE)
+                .map(|row_index| Position::new(row_index, row_index))
+                .collect_vec()
+                .try_into()
+                .unwrap(),
+        );
+
+        rows_columns_and_diagonals.push(
+            (0..BOARD_SIZE)
+                .map(|row_index| Position::new(row_index, BOARD_SIZE - row_index - 1))
+                .collect_vec()
+                .try_into()
+                .unwrap(),
+        );
+
+        rows_columns_and_diagonals
     }
 
     pub fn set_mark(&mut self, position: Position, turn_token: TurnToken) {
@@ -85,7 +130,7 @@ impl Board {
         self.turn += 1;
     }
 
-    pub fn depth_first_search(
+    fn depth_first_search(
         &self,
         position: Position,
         parent: Option<Position>,
@@ -212,86 +257,40 @@ impl Board {
         }
     }
 
+    fn find_win(&self, token: Token) -> Option<u8> {
+        self.rows_columns_and_diagonals
+            .iter()
+            .filter_map(|v| {
+                let max_turn = v
+                    .iter()
+                    .map(|position| match self.get_mark(*position) {
+                        Some(TurnToken::X(turn)) if token == Token::X => turn,
+                        Some(TurnToken::O(turn)) if token == Token::O => turn,
+                        _ => u8::MAX,
+                    })
+                    .max()
+                    .unwrap();
+
+                if max_turn == u8::MAX {
+                    return None;
+                }
+
+                Some(max_turn)
+            })
+            .max()
+    }
+
     // TODO: Add tests for a bunch of cases
-    pub fn find_winner(&self) -> (usize, usize) {
-        // Points X, points O
-        // TODO: Extract into list made in constructor!
-        let mut rows_columns_and_diagonals: Vec<Vec<Position>> = vec![];
-
-        for row_index in 0..BOARD_SIZE {
-            rows_columns_and_diagonals.push(
-                (0..BOARD_SIZE)
-                    .map(|column_index| Position::new(row_index, column_index))
-                    .collect(),
-            );
-        }
-
-        for column_index in 0..BOARD_SIZE {
-            rows_columns_and_diagonals.push(
-                (0..BOARD_SIZE)
-                    .map(|row_index| Position::new(row_index, column_index))
-                    .collect(),
-            );
-        }
-
-        rows_columns_and_diagonals.push(
-            (0..BOARD_SIZE)
-                .map(|row_index| Position::new(row_index, row_index))
-                .collect(),
-        );
-        rows_columns_and_diagonals.push(
-            (0..BOARD_SIZE)
-                .map(|row_index| Position::new(row_index, BOARD_SIZE - row_index - 1))
-                .collect(),
-        );
-
-        // TODO: extract to reduce repeated code.
-        let x_wins = rows_columns_and_diagonals
-            .iter()
-            .filter_map(|v| {
-                let max_turn = v
-                    .iter()
-                    .map(|position| match self.get_mark(*position) {
-                        Some(TurnToken::X(turn)) => turn,
-                        _ => u8::MAX,
-                    })
-                    .max()
-                    .unwrap();
-
-                if max_turn == u8::MAX {
-                    return None;
-                }
-
-                Some(max_turn)
-            })
-            .max();
-
-        let o_wins = rows_columns_and_diagonals
-            .iter()
-            .filter_map(|v| {
-                let max_turn = v
-                    .iter()
-                    .map(|position| match self.get_mark(*position) {
-                        Some(TurnToken::O(turn)) => turn,
-                        _ => u8::MAX,
-                    })
-                    .max()
-                    .unwrap();
-
-                if max_turn == u8::MAX {
-                    return None;
-                }
-
-                Some(max_turn)
-            })
-            .max();
+    pub fn find_winner(&self) -> (f32, f32) {
+        let x_wins = self.find_win(Token::X);
+        let o_wins = self.find_win(Token::O);
 
         match (x_wins, o_wins) {
-            (None, None) => (0, 0),
-            (Some(_), None) => (2, 0),
-            (None, Some(_)) => (0, 2),
-            (Some(turn_x), Some(turn_o)) if turn_x < turn_o => (2, 1),
-            (Some(turn_x), Some(turn_o)) if turn_x > turn_o => (1, 2),
+            (None, None) => (0.0, 0.0),
+            (Some(_), None) => (1.0, 0.0),
+            (None, Some(_)) => (0.0, 1.0),
+            (Some(turn_x), Some(turn_o)) if turn_x < turn_o => (1.0, 0.5),
+            (Some(turn_x), Some(turn_o)) if turn_x > turn_o => (0.5, 1.0),
             (Some(_), Some(_)) => panic!("I have a tie. I shouldn't be able to have a tie."),
         }
     }
