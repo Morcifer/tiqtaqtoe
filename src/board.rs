@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashSet, VecDeque};
 use std::fmt;
 
 use derive_more::Display;
@@ -17,6 +17,8 @@ impl Position {
         Self { row, column }
     }
 }
+
+// TODO: Consider adding an ordering for position (left to right, top to bottom)
 
 #[derive(Clone, Copy, Debug, Display, Eq, PartialEq)]
 #[repr(u8)] // TODO: Does this actually do anything?
@@ -139,44 +141,67 @@ impl Board {
         self.turn += 1;
     }
 
-    fn depth_first_search(
-        &self,
-        position: Position,
-        parent: Option<Position>,
-        visited: &mut HashMap<Position, bool>,
-        parents: &mut HashMap<Position, Option<Position>>,
-    ) -> Option<(Position, Position)> {
-        visited.insert(position, true);
+    fn depth_first_search(&self) -> Option<(Position, Position)> {
+        // Size-two loop is simpler by just having a double loop, for now.
+        for SpookyMark(a1, b1, t1) in &self.spooky_marks {
+            for SpookyMark(a2, b2, t2) in &self.spooky_marks {
+                if t1 == t2 {
+                    continue;
+                }
 
-        for SpookyMark(position_1, position_2, _) in &self.spooky_marks {
-            let optional_u;
+                if a1 == a2 && b1 == b2 {
+                    println!("Found size-2 loop at {a1}, {b1}");
+                    return Some((*a1, *a2));
+                }
 
-            if *position_1 == position {
-                optional_u = Some(*position_2);
-            } else if *position_2 == position {
-                optional_u = Some(*position_1);
-            } else {
+                if a1 == b2 && b1 == a2 {
+                    println!("Found size-2 loop at {a1}, {b1}");
+                    return Some((*a1, *a2));
+                }
+            }
+        }
+
+        let mut roots: VecDeque<Position> = self.positions.iter().cloned().collect();
+        let mut visited_roots = HashSet::new();
+
+        while let Some(root) = roots.pop_front() {
+            if visited_roots.contains(&root) {
                 continue;
             }
 
-            let v = position;
-            let u = optional_u.unwrap();
+            println!("Exploring the root {root}");
+            let mut queue: VecDeque<(Option<Position>, Position)> = VecDeque::new();
+            let mut visited: HashSet<Position> = HashSet::new();
 
-            if Some(u) == parent {
-                continue;
-            }
+            queue.push_front((None, root));
 
-            if visited[&u] {
-                // println!("Cycle found, with {u} from {v}");
-                return Some((u, v));
-            }
+            while let Some((from, current)) = queue.pop_front() {
+                visited.insert(current);
+                visited_roots.insert(current);
 
-            parents.insert(u, Some(v));
+                for SpookyMark(position_1, position_2, _) in &self.spooky_marks {
+                    let target;
 
-            if let Some((cycle_start, cycle_end)) =
-                self.depth_first_search(u, parents[&u], visited, parents)
-            {
-                return Some((cycle_start, cycle_end));
+                    if *position_1 == current {
+                        target = *position_2;
+                    } else if *position_2 == current {
+                        target = *position_1;
+                    } else {
+                        continue;
+                    }
+
+                    if Some(target) == from {
+                        continue;
+                    }
+
+                    if from.is_some() && visited.contains(&target) {
+                        println!("Found loop at {current}, {target}");
+                        return Some((current, target));
+                    }
+
+                    queue.push_front((Some(current), target));
+                    println!("Queue: {queue:?}");
+                }
             }
         }
 
@@ -185,40 +210,14 @@ impl Board {
 
     pub fn collapse_loop(&mut self) {
         // Find if there is a loop
-        let mut visited: HashMap<Position, bool> =
-            self.positions.iter().map(|p| (*p, false)).collect();
+        let loop_edge = self.depth_first_search();
 
-        let mut parents: HashMap<Position, Option<Position>> =
-            self.positions.iter().map(|p| (*p, None)).collect();
-
-        let (mut start_loop, mut end_loop) = (None, None);
-
-        for position in &self.positions {
-            if !visited[position] {
-                if let Some((start, end)) = self.depth_first_search(
-                    *position,
-                    parents[position],
-                    &mut visited,
-                    &mut parents,
-                ) {
-                    println!("I found a loop from {start} to {end}!");
-                    let mut current = end;
-                    while current != start {
-                        // println!("current is {current}");
-                        current = parents[&current].unwrap();
-                    }
-                    (start_loop, end_loop) = (Some(start), Some(end));
-                    break;
-                }
-            }
-        }
-
-        if start_loop.is_none() {
+        if loop_edge.is_none() {
             // println!("Is no loop!");
             return;
         }
 
-        let (start_loop, end_loop) = (start_loop.unwrap(), end_loop.unwrap());
+        let (start_loop, end_loop) = loop_edge.unwrap();
 
         // Resolve loop, if there is one, by randomly choosing option.
         // collapse the first edge
@@ -383,5 +382,64 @@ impl fmt::Display for Board {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_basic_board_functionality {
+    use super::*;
+
+    #[test]
+    fn test_get_rows_columns_and_diagonals() {
+        let rows_columns_and_diagonals = Board::get_rows_columns_and_diagonals();
+        assert_eq!(8, rows_columns_and_diagonals.len());
+    }
+}
+
+#[cfg(test)]
+mod test_searches_and_collapses {
+    use super::*;
+
+    #[test]
+    fn test_collapse_loop_size_two() {
+        let position0 = Position::new(0, 0);
+        let position1 = Position::new(1, 1);
+
+        let mut board = Board::new();
+        board.set_spooky_mark(position0, position1, Token::X);
+        board.set_spooky_mark(position1, position0, Token::O);
+
+        board.collapse_loop();
+
+        let option1 = board.get_mark(position0) == Some(TurnToken::X(1))
+            && board.get_mark(position1) == Some(TurnToken::O(2));
+        let option2 = board.get_mark(position0) == Some(TurnToken::O(2))
+            && board.get_mark(position1) == Some(TurnToken::X(1));
+
+        assert!(option1 || option2);
+    }
+
+    #[test]
+    fn test_collapse_loop_size_three() {
+        let position0 = Position::new(0, 0);
+        let position1 = Position::new(1, 1);
+        let position2 = Position::new(2, 2);
+
+        let mut board = Board::new();
+        board.set_spooky_mark(position0, position1, Token::X);
+        board.set_spooky_mark(position1, position2, Token::O);
+        board.set_spooky_mark(position2, position0, Token::X);
+
+        board.collapse_loop();
+
+        let option1 = board.get_mark(position0) == Some(TurnToken::X(1))
+            && board.get_mark(position1) == Some(TurnToken::O(2))
+            && board.get_mark(position2) == Some(TurnToken::X(3));
+
+        let option2 = board.get_mark(position0) == Some(TurnToken::X(3))
+            && board.get_mark(position1) == Some(TurnToken::X(1))
+            && board.get_mark(position2) == Some(TurnToken::O(2));
+
+        assert!(option1 || option2);
     }
 }
