@@ -12,13 +12,14 @@ fn main() {
     let markers_order = [Token::X, Token::O];
 
     // TODO: extract this game loop into a separate game struct
-    while board.turn < 10 && board.find_winner() == (0.0, 0.0) {
-        let random_move = random_move(&board);
-        board.set_spooky_mark(
-            random_move.0,
-            random_move.1,
-            markers_order[(board.turn - 1) as usize % 2],
-        );
+    // TODO: check the turn limit of ames
+    while board.turn < 100 && board.find_winner() == (0.0, 0.0) {
+        let token = markers_order[(board.turn - 1) as usize % 2];
+
+        let random_move = random_move(&board, token);
+
+        board.set_spooky_mark(random_move.0, random_move.1, token);
+
         print!("{board}");
 
         board.collapse_loop();

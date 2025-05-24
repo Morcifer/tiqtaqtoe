@@ -32,6 +32,15 @@ pub enum TurnToken {
     O(u8),
 }
 
+impl From<&TurnToken> for Token {
+    fn from(token: &TurnToken) -> Self {
+        match token {
+            TurnToken::X(_) => Token::X,
+            TurnToken::O(_) => Token::O,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SpookyMark(pub Position, pub Position, pub TurnToken);
 

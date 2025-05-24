@@ -1,10 +1,8 @@
 use rand::prelude::IndexedRandom;
 
-use crate::board::{Board, Position, SpookyMark};
+use crate::board::{Board, Position, SpookyMark, Token};
 
-pub fn random_move(board: &Board) -> (Position, Position) {
-    // TODO: There's a missing action - if there's a spooky X mark,
-    // O can do the same to force a collapse!
+pub fn random_move(board: &Board, token: Token) -> (Position, Position) {
     let mut possible_moves = vec![];
 
     for position_1 in &board.positions {
@@ -17,8 +15,9 @@ pub fn random_move(board: &Board) -> (Position, Position) {
                 continue;
             }
 
-            if board.spooky_marks.iter().any(|SpookyMark(p1, p2, _)| {
-                [p1, p2] == [position_1, position_2] || [p1, p2] == [position_2, position_1]
+            if board.spooky_marks.iter().any(|SpookyMark(p1, p2, t)| {
+                ([p1, p2] == [position_1, position_2] || [p1, p2] == [position_2, position_1])
+                    && Token::from(t) == token
             }) {
                 continue;
             }
