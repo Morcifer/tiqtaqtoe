@@ -2,7 +2,6 @@ use rand::prelude::{IndexedRandom, SeedableRng, StdRng};
 
 use crate::board::{Board, Position, SpookyMark, Token};
 
-
 pub trait Bot {
     fn get_next_move(&mut self, board: &Board, token: Token) -> (Position, Position);
 }
@@ -14,7 +13,7 @@ pub struct RandomBot {
 impl RandomBot {
     pub fn new(seed: u64) -> Self {
         Self {
-            rng: StdRng::seed_from_u64(seed)
+            rng: StdRng::seed_from_u64(seed),
         }
     }
 }
