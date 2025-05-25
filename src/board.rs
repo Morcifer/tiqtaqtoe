@@ -151,12 +151,12 @@ impl Board {
 
                 if a1 == a2 && b1 == b2 {
                     println!("Found size-2 loop at {a1}, {b1}");
-                    return Some((*a1, *a2));
+                    return Some((*a1, *b1));
                 }
 
                 if a1 == b2 && b1 == a2 {
                     println!("Found size-2 loop at {a1}, {b1}");
-                    return Some((*a1, *a2));
+                    return Some((*a1, *b1));
                 }
             }
         }
@@ -400,6 +400,22 @@ mod test_basic_board_functionality {
 mod test_searches_and_collapses {
     use super::*;
 
+    fn create_board(spooky_marks: Vec<((usize, usize), (usize, usize))>) -> Board {
+        let tokens = [Token::X, Token::O];
+
+        let mut board = Board::new();
+
+        for (turn, (position_1, position_2)) in spooky_marks.into_iter().enumerate() {
+            board.set_spooky_mark(
+                Position::new(position_1.0, position_1.1),
+                Position::new(position_2.0, position_2.1),
+                tokens[turn % 2],
+            );
+        }
+
+        board
+    }
+
     #[test]
     fn test_collapse_loop_size_two() {
         let position0 = Position::new(0, 0);
@@ -441,5 +457,17 @@ mod test_searches_and_collapses {
             && board.get_mark(position2) == Some(TurnToken::O(2));
 
         assert!(option1 || option2);
+    }
+
+    #[test]
+    fn test_mixed_loop_size_two() {
+        let mut board = create_board(vec![
+            ((0, 0), (1, 0)),
+            ((0, 0), (2, 2)),
+            ((0, 1), (2, 1)),
+            ((0, 0), (2, 2)),
+        ]);
+
+        board.collapse_loop();
     }
 }
