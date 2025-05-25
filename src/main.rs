@@ -2,21 +2,22 @@ mod board;
 mod bot;
 
 use crate::board::{Board, Token};
-use crate::bot::random_move;
+use crate::bot::{Bot, RandomBot};
 
 fn main() {
     println!("Hello! Let's play quantum tic-tac-toe!");
 
     let mut board = Board::new();
+    let mut random_bot = RandomBot::new(42);
 
     let markers_order = [Token::X, Token::O];
 
-    // TODO: extract this game loop into a separate game struct
-    // And allow seed for bots so you can make random noisy tests.
+    // TODO: extract this game loop into a separate game struct.
+    // And make random noisy tests.
     while board.turn <= 9 && board.find_winner() == (0.0, 0.0) {
         let token = markers_order[(board.turn - 1) as usize % 2];
 
-        let random_move = random_move(&board, token);
+        let random_move = random_bot.get_next_move(&board, token);
 
         board.set_spooky_mark(random_move.0, random_move.1, token);
 

@@ -252,11 +252,11 @@ impl Board {
             self.spooky_marks.retain(|m| *m != to_collapse);
 
             if self.get_mark(to_collapse.0).is_some() {
-                println!("collapsing {to_collapse:?} on {}", to_collapse.1);
+                println!("Collapsing {to_collapse:?} on {}", to_collapse.1);
                 self.set_mark(to_collapse.1, to_collapse.2);
                 collapsed_positions.insert(to_collapse.1);
             } else if self.get_mark(to_collapse.1).is_some() {
-                println!("collapsing {to_collapse:?} on {}", to_collapse.0);
+                println!("Collapsing {to_collapse:?} on {}", to_collapse.0);
                 self.set_mark(to_collapse.0, to_collapse.2);
                 collapsed_positions.insert(to_collapse.0);
             } else {
