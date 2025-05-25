@@ -69,3 +69,27 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod random_bot_game_tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    use crate::bot::RandomBot;
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    #[case(13)]
+    #[case(42)]
+    #[case(100)]
+    #[case(31415)]
+    fn game_test(#[case] seed: u64) {
+        let random_bot = RandomBot::new(seed);
+        let mut game = Game::new(random_bot);
+
+        // As long as it doesn't crash, we're probably fine.
+        game.play_whole_game();
+    }
+}
