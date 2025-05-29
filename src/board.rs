@@ -150,12 +150,10 @@ impl Board {
                 }
 
                 if a1 == a2 && b1 == b2 {
-                    println!("Found size-2 loop at {a1}, {b1}");
                     return Some((*a1, *b1));
                 }
 
                 if a1 == b2 && b1 == a2 {
-                    println!("Found size-2 loop at {a1}, {b1}");
                     return Some((*a1, *b1));
                 }
             }
@@ -169,7 +167,6 @@ impl Board {
                 continue;
             }
 
-            println!("Exploring the root {root}");
             let mut queue: VecDeque<(Option<Position>, Position)> = VecDeque::new();
             let mut visited: HashSet<Position> = HashSet::new();
 
@@ -195,12 +192,10 @@ impl Board {
                     }
 
                     if from.is_some() && visited.contains(&target) {
-                        println!("Found loop at {current}, {target}");
                         return Some((current, target));
                     }
 
                     queue.push_front((Some(current), target));
-                    println!("Queue: {queue:?}");
                 }
             }
         }
@@ -213,7 +208,6 @@ impl Board {
         let loop_edge = self.depth_first_search();
 
         if loop_edge.is_none() {
-            // println!("Is no loop!");
             return;
         }
 
@@ -234,8 +228,6 @@ impl Board {
 
         let position = if choice { first.0 } else { first.1 };
 
-        println!("Collapsing {first:?} on {position}");
-
         self.set_mark(position, first.2);
 
         self.spooky_marks.retain(|m| *m != first);
@@ -252,11 +244,9 @@ impl Board {
             self.spooky_marks.retain(|m| *m != to_collapse);
 
             if self.get_mark(to_collapse.0).is_some() {
-                println!("Collapsing {to_collapse:?} on {}", to_collapse.1);
                 self.set_mark(to_collapse.1, to_collapse.2);
                 collapsed_positions.insert(to_collapse.1);
             } else if self.get_mark(to_collapse.1).is_some() {
-                println!("Collapsing {to_collapse:?} on {}", to_collapse.0);
                 self.set_mark(to_collapse.0, to_collapse.2);
                 collapsed_positions.insert(to_collapse.0);
             } else {
@@ -310,6 +300,12 @@ const X1: &[char] = &[' ', ' ', ' ', 'X', 'X', ' ', ' ', ' '];
 const O0: &[char] = &[' ', ' ', 'O', 'O', 'O', 'O', ' ', ' '];
 const O1: &[char] = &[' ', 'O', 'O', ' ', ' ', 'O', 'O', ' '];
 
+const S: &[char] = &[
+    '─', '─', '─', '─', '─', '─', '─', '─', '─', '─', '┼', '─', '─', '─', '─', '─', '─', '─', '─',
+    '─', '─', '┼', '─', '─', '─', '─', '─', '─', '─', '─', '─', '─',
+];
+
+// TODO: Make this implement one row at a time, and then make consts into strs.
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut display = [[' '; 32]; 11]; // TODO: Make generic for grid size!
@@ -319,18 +315,8 @@ impl fmt::Display for Board {
             row[21] = '│';
         }
 
-        // TODO: Make const of this.
-        display[3] = "──────────┼──────────┼──────────"
-            .chars()
-            .collect_vec()
-            .try_into()
-            .unwrap();
-
-        display[7] = "──────────┼──────────┼──────────"
-            .chars()
-            .collect_vec()
-            .try_into()
-            .unwrap();
+        display[3][..].copy_from_slice(S);
+        display[7][..].copy_from_slice(S);
 
         for position in &self.positions {
             let row_offset = position.row * 4;
@@ -488,6 +474,53 @@ mod test_searches_and_collapses {
 
         let (score_x, score_o) = board.get_score();
         assert!(score_x == 0.0 || score_x == 0.5);
+        assert_eq!(1.0, score_o);
+    }
+
+    #[test]
+    fn test_self_fulfilling_loop() {
+        let mut board = create_board(vec![
+            ((0, 1), (0, 1)),
+            ((0, 2), (1, 2)),
+            ((0, 0), (1, 0)),
+            ((1, 1), (1, 2)),
+            ((0, 0), (2, 2)),
+            ((2, 0), (0, 2)),
+            ((2, 1), (2, 2)),
+            ((1, 1), (0, 2)),
+        ]);
+
+        board.collapse_loop();
+
+        assert_eq!(None, board.get_mark(Position::new(0, 0)));
+        assert_eq!(
+            Token::X,
+            Token::from(&board.get_mark(Position::new(0, 1)).unwrap())
+        );
+        assert_eq!(
+            Token::O,
+            Token::from(&board.get_mark(Position::new(0, 2)).unwrap())
+        );
+
+        assert_eq!(None, board.get_mark(Position::new(1, 0)));
+        assert_eq!(
+            Token::O,
+            Token::from(&board.get_mark(Position::new(1, 1)).unwrap())
+        );
+        assert_eq!(
+            Token::O,
+            Token::from(&board.get_mark(Position::new(1, 2)).unwrap())
+        );
+
+        assert_eq!(
+            Token::O,
+            Token::from(&board.get_mark(Position::new(2, 0)).unwrap())
+        );
+        assert_eq!(None, board.get_mark(Position::new(2, 1)));
+        assert_eq!(None, board.get_mark(Position::new(2, 2)));
+
+        let (score_x, score_o) = board.get_score();
+        assert_eq!(0.0, score_x);
         assert_eq!(1.0, score_o);
     }
 }
