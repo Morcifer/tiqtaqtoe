@@ -289,7 +289,7 @@ impl Board {
     }
 
     // TODO: Add tests for a bunch of cases
-    pub fn find_winner(&self) -> (f32, f32) {
+    pub fn get_score(&self) -> (f32, f32) {
         let x_wins = self.find_win(Token::X);
         let o_wins = self.find_win(Token::O);
 
@@ -469,5 +469,25 @@ mod test_searches_and_collapses {
         ]);
 
         board.collapse_loop();
+    }
+
+    #[test]
+    fn test_wikipedia_collapse() {
+        let mut board = create_board(vec![
+            ((0, 0), (0, 0)),
+            ((2, 0), (1, 1)),
+            ((0, 1), (1, 1)),
+            ((2, 1), (1, 1)),
+            ((1, 0), (2, 0)),
+            ((2, 2), (2, 2)),
+            ((0, 1), (0, 2)),
+            ((0, 2), (1, 1)),
+        ]);
+
+        board.collapse_loop();
+
+        let (score_x, score_o) = board.get_score();
+        assert!(score_x == 0.0 || score_x == 0.5);
+        assert_eq!(1.0, score_o);
     }
 }

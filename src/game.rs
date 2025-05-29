@@ -38,7 +38,7 @@ where
     }
 
     pub fn play_whole_game(&mut self) {
-        while self.board.turn <= 9 && self.board.find_winner() == (0.0, 0.0) {
+        while self.board.turn <= 9 && self.board.get_score() == (0.0, 0.0) {
             self.play_turn();
         }
     }
@@ -46,7 +46,7 @@ where
     pub fn print_winner(&self) {
         println!("Final board:");
         print!("{}", self.board);
-        let board_score = self.board.find_winner();
+        let board_score = self.board.get_score();
 
         let winner = if board_score.0 == 1.0 {
             Some(Token::X)
@@ -79,13 +79,7 @@ mod random_bot_game_tests {
     use crate::bot::RandomBot;
 
     #[rstest]
-    #[case(0)]
-    #[case(1)]
-    #[case(13)]
-    #[case(42)]
-    #[case(100)]
-    #[case(31415)]
-    fn game_test(#[case] seed: u64) {
+    fn game_test(#[values(0, 1, 2, 13, 42, 100, 31415)] seed: u64) {
         let random_bot = RandomBot::new(seed);
         let mut game = Game::new(random_bot);
 
