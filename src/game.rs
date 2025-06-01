@@ -27,8 +27,7 @@ where
 
         let random_move = self.bot.get_next_move(&self.board, token);
 
-        self.board
-            .set_spooky_mark(random_move.0, random_move.1, token);
+        self.board.do_turn(random_move.0, random_move.1, token);
 
         println!("Board before collapse:");
         print!("{}", self.board);

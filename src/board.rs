@@ -16,6 +16,10 @@ impl Position {
     pub fn new(row: usize, column: usize) -> Position {
         Self { row, column }
     }
+
+    pub fn is_valid(&self) -> bool {
+        self.row < BOARD_SIZE && self.column < BOARD_SIZE
+    }
 }
 
 // TODO: Consider adding an ordering for position (left to right, top to bottom)
@@ -112,19 +116,43 @@ impl Board {
         rows_columns_and_diagonals
     }
 
-    pub fn set_mark(&mut self, position: Position, turn_token: TurnToken) {
-        self.board[position.row][position.column] = Some(turn_token);
-    }
-
     pub fn get_mark(&self, position: Position) -> Option<TurnToken> {
         self.board[position.row][position.column]
     }
 
-    pub fn set_spooky_mark(&mut self, position_1: Position, position_2: Position, token: Token) {
-        println!(
-            "Putting {token} in {position_1} and {position_2} at turn {}",
-            self.turn
-        );
+    fn set_mark(&mut self, position: Position, turn_token: TurnToken) {
+        println!("Putting classical turn token {turn_token} in {position}");
+
+        if let Some(spot) = self.board[position.row].get_mut(position.column) {
+            match spot {
+                Some(_) => panic!("Invalid move, position {position} already occupied!"),
+                None => *spot = Some(turn_token),
+            }
+        } else {
+            panic!("I seem to be out of bounds at {position}!")
+        }
+    }
+
+    fn set_spooky_mark(
+        &mut self,
+        position_1: Position,
+        position_2: Position,
+        turn_token: TurnToken,
+    ) {
+        println!("Putting {turn_token:?} in {position_1} and {position_2}");
+
+        self.spooky_marks
+            .push(SpookyMark(position_1, position_2, turn_token));
+    }
+
+    pub fn do_turn(&mut self, position_1: Position, position_2: Position, token: Token) {
+        if !position_1.is_valid() {
+            panic!("Invalid position {position_1}!");
+        }
+
+        if !position_2.is_valid() {
+            panic!("Invalid position {position_2}!");
+        }
 
         let turn_token = match token {
             Token::X => TurnToken::X(self.turn),
@@ -134,8 +162,7 @@ impl Board {
         if position_1 == position_2 {
             self.set_mark(position_1, turn_token);
         } else {
-            self.spooky_marks
-                .push(SpookyMark(position_1, position_2, turn_token));
+            self.set_spooky_mark(position_1, position_2, turn_token);
         }
 
         self.turn += 1;
@@ -228,7 +255,7 @@ impl Board {
 
         let position = if choice { first.0 } else { first.1 };
 
-        self.set_mark(position, first.2);
+        self.board[position.row][position.column] = Some(first.2);
 
         self.spooky_marks.retain(|m| *m != first);
 
@@ -244,10 +271,10 @@ impl Board {
             self.spooky_marks.retain(|m| *m != to_collapse);
 
             if self.get_mark(to_collapse.0).is_some() {
-                self.set_mark(to_collapse.1, to_collapse.2);
+                self.board[to_collapse.1.row][to_collapse.1.column] = Some(to_collapse.2);
                 collapsed_positions.insert(to_collapse.1);
             } else if self.get_mark(to_collapse.1).is_some() {
-                self.set_mark(to_collapse.0, to_collapse.2);
+                self.board[to_collapse.0.row][to_collapse.0.column] = Some(to_collapse.2);
                 collapsed_positions.insert(to_collapse.0);
             } else {
                 continue;
@@ -380,6 +407,28 @@ mod test_basic_board_functionality {
         let rows_columns_and_diagonals = Board::get_rows_columns_and_diagonals();
         assert_eq!(8, rows_columns_and_diagonals.len());
     }
+
+    #[test]
+    #[should_panic(expected = "Invalid position { row: 3, column: 0 }!")]
+    fn test_row_out_of_bounds() {
+        let mut board = Board::new();
+        board.do_turn(Position::new(3, 0), Position::new(3, 0), Token::X);
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid position { row: 0, column: 3 }!")]
+    fn test_column_out_of_bounds() {
+        let mut board = Board::new();
+        board.do_turn(Position::new(0, 3), Position::new(0, 3), Token::X);
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid move, position { row: 0, column: 0 } already occupied!")]
+    fn test_position_occupied() {
+        let mut board = Board::new();
+        board.do_turn(Position::new(0, 0), Position::new(0, 0), Token::X);
+        board.do_turn(Position::new(0, 0), Position::new(0, 0), Token::O);
+    }
 }
 
 #[cfg(test)]
@@ -392,7 +441,7 @@ mod test_searches_and_collapses {
         let mut board = Board::new();
 
         for (turn, (position_1, position_2)) in spooky_marks.into_iter().enumerate() {
-            board.set_spooky_mark(
+            board.do_turn(
                 Position::new(position_1.0, position_1.1),
                 Position::new(position_2.0, position_2.1),
                 tokens[turn % 2],
@@ -408,8 +457,8 @@ mod test_searches_and_collapses {
         let position1 = Position::new(1, 1);
 
         let mut board = Board::new();
-        board.set_spooky_mark(position0, position1, Token::X);
-        board.set_spooky_mark(position1, position0, Token::O);
+        board.do_turn(position0, position1, Token::X);
+        board.do_turn(position1, position0, Token::O);
 
         board.collapse_loop();
 
@@ -428,9 +477,9 @@ mod test_searches_and_collapses {
         let position2 = Position::new(2, 2);
 
         let mut board = Board::new();
-        board.set_spooky_mark(position0, position1, Token::X);
-        board.set_spooky_mark(position1, position2, Token::O);
-        board.set_spooky_mark(position2, position0, Token::X);
+        board.do_turn(position0, position1, Token::X);
+        board.do_turn(position1, position2, Token::O);
+        board.do_turn(position2, position0, Token::X);
 
         board.collapse_loop();
 
